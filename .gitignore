@@ -21,8 +21,8 @@ contacts.db
 .vscode/
 .idea/
 
-# PyInstaller
-*.spec.bak
+# Docker-Images (gespeicherte Builds, gehören nicht ins Repo)
+*.tar
 
 # OS
 .DS_Store

@@ -16,31 +16,33 @@ jobs:
       - run: uv sync --all-extras
       - run: uv run pytest tests/ -v
 
-  build-exe:
-    runs-on: windows-latest
+  build-image:
+    # Nur bei Versions-Tags ein Image bauen und als tar ablegen.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
     needs: test
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: pip install pyinstaller flask pystray pillow
-      - run: pyinstaller --clean build.spec
+      - name: Image bauen und als tar speichern
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          docker build -t praxis-helper:"${TAG}" .
+          docker save praxis-helper:"${TAG}" -o "praxis-helper-${TAG}.tar"
       - uses: actions/upload-artifact@v4
         with:
-          name: Warteliste
-          path: dist/Warteliste.exe
+          name: praxis-helper-image
+          path: praxis-helper-*.tar
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    needs: build-exe
+    needs: build-image
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: Warteliste
+          name: praxis-helper-image
       - uses: softprops/action-gh-release@v2
         with:
-          files: Warteliste.exe
+          files: praxis-helper-*.tar

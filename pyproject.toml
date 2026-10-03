@@ -1,12 +1,12 @@
 [project]
-name = "waitlist-contact-manager"
-version = "0.1.0"
-description = "Wartelisten-Kontaktverwaltung – lokale Flask-App mit SQLite"
+name = "praxis-helper"
+version = "0.2.0"
+description = "Praxis Helper – Server-Flask-App mit SQLite: Springerliste und Warteliste"
 requires-python = ">=3.11"
 dependencies = [
     "flask",
-    "pystray",
-    "pillow",
+    "waitress",
+    "werkzeug",
 ]
 
 [project.optional-dependencies]

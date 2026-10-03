@@ -1,14 +1,15 @@
-"""Beispielbasierte Unit-Tests für die UI der Wartelisten-Kontaktverwaltung.
+"""Route-/UI-Tests für Praxis Helper.
 
 Verwendet den Flask-Test-Client und eine temporäre SQLite-Datenbank.
-Jeder Test referenziert die zugehörige Anforderung aus dem Anforderungsdokument.
+Deckt Login-Flow, Springer-CRUD + Filter, Warteliste mit Terminzeit und
+Nutzerverwaltung ab.
 """
 
 import io
-import json
 from datetime import datetime, timedelta
 
 import pytest
+from werkzeug.security import generate_password_hash
 
 from src import db
 from src.app import app
@@ -16,148 +17,215 @@ from src.app import app
 
 @pytest.fixture(autouse=True)
 def _use_temp_db(tmp_path, monkeypatch):
-    """Jeder Test bekommt eine eigene temporäre Datenbank."""
-    db_file = str(tmp_path / "test_contacts.db")
+    """Jeder Test bekommt eine eigene temporäre Datenbank mit zwei Nutzern."""
+    db_file = str(tmp_path / "test.db")
     monkeypatch.setattr(db, "_db_path", lambda: db_file)
     db.init_db()
+    db.add_user("sekretariat", generate_password_hash("pw"), "office")
+    db.add_user("mueller", generate_password_hash("pw"), "therapist")
 
 
 @pytest.fixture()
 def client():
-    """Flask-Test-Client."""
     app.config["TESTING"] = True
     with app.test_client() as c:
         yield c
 
 
-# Anf. 1.1 – Eingabemaske enthält alle Felder
-def test_form_has_required_fields(client):
-    """GET / enthält Eingabefelder für Name, Telefonnummer, E-Mail und Notizen."""
-    resp = client.get("/")
-    html = resp.data.decode()
-
-    assert resp.status_code == 200
-    assert 'name="name"' in html
-    assert 'name="phone"' in html
-    assert 'name="email"' in html
-    assert 'name="notes"' in html
+def _login(client, username="sekretariat"):
+    return client.post(
+        "/login", data={"username": username, "password": "pw"}, follow_redirects=True
+    )
 
 
-# Anf. 2.4 – Leere Liste zeigt Hinweistext
-def test_empty_list_shows_hint(client):
-    """Wenn keine Kontakte existieren, zeigt GET / den Hinweis 'Warteliste ist leer'."""
-    resp = client.get("/")
-    html = resp.data.decode()
-
-    assert resp.status_code == 200
-    assert "Warteliste ist leer" in html
+# --- Login-Flow ---
 
 
-# Anf. 3.3 – Toggle zeigt ausgeblendete Kontakte
-def test_hidden_contacts_toggle(client):
-    """GET /?show_hidden=1 zeigt auch Kontakte, die älter als 28 Tage sind."""
-    # Kontakt mit Erstellungsdatum vor 35 Tagen einfügen
-    old_date = (datetime.now() - timedelta(days=35)).strftime("%Y-%m-%d %H:%M:%S")
-    conn = db.get_db()
-    try:
-        conn.execute(
-            "INSERT INTO contacts (name, phone, email, notes, created_at) VALUES (?, ?, ?, ?, ?)",
-            ("Alter Kontakt", "123", "alt@test.de", "", old_date),
+class TestLogin:
+    def test_unauthenticated_redirects_to_login(self, client):
+        resp = client.get("/springer")
+        assert resp.status_code == 302
+        assert "/login" in resp.headers["Location"]
+
+    def test_successful_login_lands_on_springer(self, client):
+        resp = _login(client)
+        assert resp.status_code == 200
+        assert "Springerliste" in resp.data.decode()
+
+    def test_wrong_password_shows_error_no_session(self, client):
+        resp = client.post(
+            "/login", data={"username": "sekretariat", "password": "falsch"},
+            follow_redirects=True,
         )
-        conn.commit()
-    finally:
-        conn.close()
+        html = resp.data.decode()
+        assert "falsch" in html.lower()
+        # Keine Session: Zugriff weiterhin gesperrt
+        resp2 = client.get("/springer")
+        assert resp2.status_code == 302
 
-    # Ohne show_hidden: Kontakt nicht sichtbar
-    resp_normal = client.get("/")
-    html_normal = resp_normal.data.decode()
-    assert "Alter Kontakt" not in html_normal
-
-    # Mit show_hidden=1: Kontakt sichtbar
-    resp_hidden = client.get("/?show_hidden=1")
-    html_hidden = resp_hidden.data.decode()
-    assert "Alter Kontakt" in html_hidden
+    def test_logout_clears_session(self, client):
+        _login(client)
+        client.get("/logout")
+        resp = client.get("/springer")
+        assert resp.status_code == 302
 
 
-# Anf. 3.4 – Ausgeblendete Kontakte haben CSS-Klasse
-def test_hidden_contacts_visual_distinction(client):
-    """Ausgeblendete Kontakte haben die CSS-Klasse 'hidden-contact'."""
-    old_date = (datetime.now() - timedelta(days=35)).strftime("%Y-%m-%d %H:%M:%S")
-    conn = db.get_db()
-    try:
-        conn.execute(
-            "INSERT INTO contacts (name, phone, email, notes, created_at) VALUES (?, ?, ?, ?, ?)",
-            ("Versteckter Kontakt", "456", "hidden@test.de", "", old_date),
+# --- Springer-CRUD und Filter ---
+
+
+class TestSpringer:
+    def _add(self, client, **overrides):
+        data = {
+            "client_name": "Klient A",
+            "therapist": "mueller",
+            "valid_from": "2026-01-01",
+            "valid_until": "",
+            "appointment_time": "mittags",
+            "notes": "",
+        }
+        data.update(overrides)
+        return client.post("/springer/add", data=data, follow_redirects=True)
+
+    def test_add_shows_in_list(self, client):
+        _login(client)
+        resp = self._add(client)
+        assert "Klient A" in resp.data.decode()
+
+    def test_edit_loads_values(self, client):
+        _login(client)
+        sid = db.add_springer("Klient B", "mueller", "2026-01-01", "", "nachmittags", "Hinweis X")
+        resp = client.get(f"/springer/edit/{sid}")
+        html = resp.data.decode()
+        assert "Klient B" in html and "Hinweis X" in html
+
+    def test_update_persists(self, client):
+        _login(client)
+        sid = db.add_springer("Alt", "mueller", "2026-01-01")
+        client.post(
+            f"/springer/edit/{sid}",
+            data={"client_name": "Neu", "therapist": "mueller",
+                  "valid_from": "2026-01-01", "valid_until": "",
+                  "appointment_time": "flexibel", "notes": ""},
+            follow_redirects=True,
         )
-        conn.commit()
-    finally:
-        conn.close()
+        assert db.get_springer(sid)["client_name"] == "Neu"
 
-    resp = client.get("/?show_hidden=1")
-    html = resp.data.decode()
+    def test_delete_removes(self, client):
+        _login(client)
+        sid = db.add_springer("Weg", "mueller", "2026-01-01")
+        client.post(f"/springer/delete/{sid}", follow_redirects=True)
+        assert db.get_springer(sid) is None
 
-    assert "hidden-contact" in html
-    assert "Versteckter Kontakt" in html
+    def test_filter_by_therapist(self, client):
+        _login(client)
+        db.add_springer("Mueller-Klient", "mueller", "2026-01-01")
+        db.add_springer("Andere-Klient", "sekretariat", "2026-01-01")
+        resp = client.get("/springer?therapist=mueller")
+        html = resp.data.decode()
+        assert "Mueller-Klient" in html
+        assert "Andere-Klient" not in html
 
+    def test_show_hidden_reveals_expired(self, client):
+        _login(client)
+        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        db.add_springer("Abgelaufen", "mueller", "2025-01-01", yesterday)
+        # Default: nicht sichtbar
+        assert "Abgelaufen" not in client.get("/springer").data.decode()
+        # show_hidden: sichtbar
+        assert "Abgelaufen" in client.get("/springer?show_hidden=1").data.decode()
 
-# Anf. 4.1 – Edit-Route zeigt Kontaktdaten
-def test_edit_loads_contact_data(client):
-    """GET /edit/<id> zeigt die Kontaktdaten im Formular."""
-    contact_id = db.add_contact("Maria Muster", "0171-999", "maria@test.de", "Testnotiz")
+    def test_office_filter_default_shows_all(self, client):
+        _login(client, "sekretariat")
+        db.add_springer("K1", "mueller", "2026-01-01")
+        db.add_springer("K2", "sekretariat", "2026-01-01")
+        html = client.get("/springer").data.decode()
+        assert "K1" in html and "K2" in html
 
-    resp = client.get(f"/edit/{contact_id}")
-    html = resp.data.decode()
+    def test_therapist_filter_default_own(self, client):
+        _login(client, "mueller")
+        db.add_springer("Meins", "mueller", "2026-01-01")
+        db.add_springer("Fremd", "sekretariat", "2026-01-01")
+        html = client.get("/springer").data.decode()
+        assert "Meins" in html
+        assert "Fremd" not in html
 
-    assert resp.status_code == 200
-    assert "Maria Muster" in html
-    assert "0171-999" in html
-    assert "maria@test.de" in html
-    assert "Testnotiz" in html
-
-
-# Anf. 4.3 – Lösch-Button hat Bestätigungsdialog
-def test_delete_confirmation(client):
-    """Der Lösch-Button enthält einen onclick-confirm-Dialog."""
-    contact_id = db.add_contact("Zu Löschen", "", "", "")
-
-    resp = client.get("/")
-    html = resp.data.decode()
-
-    assert "confirm(" in html
-
-
-# Anf. 6.3 – Ungültiges JSON wird abgelehnt
-def test_invalid_json_import_rejected(client):
-    """POST /import mit ungültigem JSON zeigt eine Fehlermeldung."""
-    data = {
-        "file": (io.BytesIO(b"das ist kein json!!!"), "bad.json"),
-        "mode": "replace",
-    }
-    resp = client.post("/import", data=data, content_type="multipart/form-data", follow_redirects=True)
-    html = resp.data.decode()
-
-    assert "gültiges JSON" in html or "JSON" in html
+    def test_empty_name_rejected(self, client):
+        _login(client)
+        resp = self._add(client, client_name="")
+        assert "Pflichtfeld" in resp.data.decode()
 
 
-# Anf. 6.4 – Import-Seite zeigt Modus-Auswahl
-def test_import_mode_selection(client):
-    """GET /import zeigt Radio-Buttons für Ersetzen/Zusammenführen."""
-    resp = client.get("/import")
-    html = resp.data.decode()
-
-    assert resp.status_code == 200
-    assert 'type="radio"' in html
-    assert 'value="replace"' in html
-    assert 'value="merge"' in html
+# --- Warteliste mit Terminzeit ---
 
 
-# Anf. 7.7 – UI-Texte sind auf Deutsch
-def test_german_ui_labels(client):
-    """Die UI enthält deutsche Labels wie Name, Telefonnummer, E-Mail, Notizen."""
-    resp = client.get("/")
-    html = resp.data.decode()
+class TestWarteliste:
+    def test_add_with_appointment_time(self, client):
+        _login(client)
+        resp = client.post(
+            "/warteliste/add",
+            data={"name": "Neuer Klient", "appointment_time": "nachmittags"},
+            follow_redirects=True,
+        )
+        html = resp.data.decode()
+        assert "Neuer Klient" in html and "nachmittags" in html
 
-    assert "Name" in html
-    assert "Telefonnummer" in html
-    assert "E-Mail" in html
-    assert "Notizen" in html
+    def test_edit_loads_contact(self, client):
+        _login(client)
+        cid = db.add_contact("Maria", "0171", "m@test.de", "Notiz", "mittags")
+        html = client.get(f"/warteliste/edit/{cid}").data.decode()
+        assert "Maria" in html and "0171" in html
+
+    def test_empty_list_hint(self, client):
+        _login(client)
+        assert "Warteliste ist leer" in client.get("/warteliste").data.decode()
+
+    def test_import_mode_selection(self, client):
+        _login(client)
+        html = client.get("/warteliste/import").data.decode()
+        assert 'value="replace"' in html and 'value="merge"' in html
+
+    def test_invalid_json_rejected(self, client):
+        _login(client)
+        data = {"file": (io.BytesIO(b"kein json"), "bad.json"), "mode": "replace"}
+        resp = client.post(
+            "/warteliste/import", data=data,
+            content_type="multipart/form-data", follow_redirects=True,
+        )
+        assert "JSON" in resp.data.decode()
+
+
+# --- Nutzerverwaltung ---
+
+
+class TestUsers:
+    def test_add_user(self, client):
+        _login(client)
+        client.post(
+            "/users/add",
+            data={"username": "neu", "password": "pw", "role": "therapist"},
+            follow_redirects=True,
+        )
+        assert db.get_user_by_username("neu") is not None
+
+    def test_duplicate_username_rejected(self, client):
+        _login(client)
+        resp = client.post(
+            "/users/add",
+            data={"username": "mueller", "password": "pw", "role": "therapist"},
+            follow_redirects=True,
+        )
+        assert "vergeben" in resp.data.decode()
+
+    def test_delete_user_keeps_springer_entries(self, client):
+        _login(client)
+        db.add_springer("Bleibt", "mueller", "2026-01-01")
+        user = db.get_user_by_username("mueller")
+        client.post(f"/users/delete/{user['id']}", follow_redirects=True)
+        # Nutzer weg, Springer-Eintrag bleibt
+        assert db.get_user_by_username("mueller") is None
+        assert len(db.list_springer(therapist="mueller", include_expired=True)) == 1
+
+    def test_german_ui(self, client):
+        _login(client)
+        html = client.get("/springer").data.decode()
+        assert "Therapeutin" in html and "Terminzeit" in html

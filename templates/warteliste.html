@@ -5,7 +5,7 @@
 
 <section class="contact-form">
     <h2>{% if edit_contact %}Kontakt bearbeiten{% else %}Neuer Kontakt{% endif %}</h2>
-    <form method="post" action="{% if edit_contact %}{{ url_for('update_contact', contact_id=edit_contact.id) }}{% else %}{{ url_for('add_contact') }}{% endif %}">
+    <form method="post" action="{% if edit_contact %}{{ url_for('warteliste_update', contact_id=edit_contact.id) }}{% else %}{{ url_for('warteliste_add') }}{% endif %}">
         <div class="form-group">
             <label for="name">Name *</label>
             <input type="text" id="name" name="name" required value="{{ edit_contact.name if edit_contact else '' }}">
@@ -19,12 +19,25 @@
             <input type="email" id="email" name="email" value="{{ edit_contact.email if edit_contact else '' }}">
         </div>
         <div class="form-group">
+            <label>Mögliche Terminzeit</label>
+            <div class="time-options">
+                {% set current_time = edit_contact.appointment_time if edit_contact else 'flexibel' %}
+                {% for t in appointment_times %}
+                <label class="time-option">
+                    <input type="radio" name="appointment_time" value="{{ t }}"
+                           {% if t == current_time %}checked{% endif %}>
+                    <span>{{ t }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="form-group">
             <label for="notes">Notizen</label>
             <textarea id="notes" name="notes">{{ edit_contact.notes if edit_contact else '' }}</textarea>
         </div>
         <button type="submit">{% if edit_contact %}Speichern{% else %}Hinzufügen{% endif %}</button>
         {% if edit_contact %}
-        <a href="{{ url_for('index') }}">Abbrechen</a>
+        <a href="{{ url_for('warteliste_page') }}">Abbrechen</a>
         {% endif %}
     </form>
 </section>
@@ -34,12 +47,12 @@
 
     <div class="list-actions">
         {% if show_hidden %}
-        <a href="{{ url_for('index') }}">Ausgeblendete Kontakte verbergen</a>
+        <a href="{{ url_for('warteliste_page') }}">Ausgeblendete Kontakte verbergen</a>
         {% else %}
-        <a href="{{ url_for('index', show_hidden=1) }}">Ausgeblendete Kontakte anzeigen</a>
+        <a href="{{ url_for('warteliste_page', show_hidden=1) }}">Ausgeblendete Kontakte anzeigen</a>
         {% endif %}
-        <a href="{{ url_for('export_contacts') }}" class="export-btn">Exportieren</a>
-        <a href="{{ url_for('import_page') }}">Importieren</a>
+        <a href="{{ url_for('warteliste_export') }}" class="export-btn">Exportieren</a>
+        <a href="{{ url_for('warteliste_import_page') }}">Importieren</a>
     </div>
 
     {% if empty_hint %}
@@ -51,6 +64,7 @@
                 <th>Name</th>
                 <th>Telefonnummer</th>
                 <th>E-Mail</th>
+                <th>Terminzeit</th>
                 <th>Notizen</th>
                 <th>Wartedauer</th>
                 <th>Aktionen</th>
@@ -62,12 +76,13 @@
                 <td>{{ contact.name }}</td>
                 <td>{{ contact.phone }}</td>
                 <td>{{ contact.email }}</td>
+                <td>{{ contact.appointment_time }}</td>
                 <td>{{ contact.notes }}</td>
                 <td>{{ contact.waiting_days }} Tage</td>
                 <td class="actions">
-                    <a href="{{ url_for('edit_contact', contact_id=contact.id) }}" title="Bearbeiten" class="btn-edit"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 1.5l3 3L5 14H2v-3z"/></svg></a>
-                    <form method="post" action="{{ url_for('delete_contact', contact_id=contact.id) }}" style="display:inline;">
-                        <button type="submit" onclick="return confirm('Kontakt wirklich löschen?')" title="Löschen" class="btn-delete"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10"/></svg></button>
+                    <a href="{{ url_for('warteliste_edit', contact_id=contact.id) }}" title="Bearbeiten" class="btn-edit">Bearbeiten</a>
+                    <form method="post" action="{{ url_for('warteliste_delete', contact_id=contact.id) }}" style="display:inline;">
+                        <button type="submit" onclick="return confirm('Kontakt wirklich löschen?')" title="Löschen" class="btn-delete">Löschen</button>
                     </form>
                 </td>
             </tr>

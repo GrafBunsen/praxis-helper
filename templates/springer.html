@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-layout">
+
+<section class="entry-form">
+    <h2>{% if edit_entry %}Springer bearbeiten{% else %}Neuer Springer{% endif %}</h2>
+    <form method="post" action="{% if edit_entry %}{{ url_for('springer_update', springer_id=edit_entry.id) }}{% else %}{{ url_for('springer_add') }}{% endif %}">
+
+        <div class="form-group">
+            <label for="client_name">Name der Klientin *</label>
+            <input type="text" id="client_name" name="client_name" required
+                   value="{{ edit_entry.client_name if edit_entry else '' }}">
+        </div>
+
+        <div class="form-group">
+            <label for="therapist">Therapeutin *</label>
+            {% set preselected = edit_entry.therapist if edit_entry else (session.user.username if session.user.role == 'therapist' else '') %}
+            <select id="therapist" name="therapist" required>
+                <option value="" {% if not preselected %}selected{% endif %}>-- bitte wählen --</option>
+                {% for t in therapists %}
+                <option value="{{ t.username }}" {% if t.username == preselected %}selected{% endif %}>{{ t.username }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="valid_from">Zeitraum von *</label>
+            <input type="date" id="valid_from" name="valid_from" required
+                   value="{{ edit_entry.valid_from if edit_entry else '' }}">
+        </div>
+
+        <div class="form-group">
+            <label for="valid_until">Zeitraum bis (leer = unbefristet)</label>
+            <input type="date" id="valid_until" name="valid_until"
+                   value="{{ edit_entry.valid_until if edit_entry else '' }}">
+        </div>
+
+        <div class="form-group">
+            <label>Mögliche Terminzeit</label>
+            <div class="time-options">
+                {% set current_time = edit_entry.appointment_time if edit_entry else 'flexibel' %}
+                {% for t in appointment_times %}
+                <label class="time-option">
+                    <input type="radio" name="appointment_time" value="{{ t }}"
+                           {% if t == current_time %}checked{% endif %}>
+                    <span>{{ t }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="notes">Hinweis</label>
+            <textarea id="notes" name="notes">{{ edit_entry.notes if edit_entry else '' }}</textarea>
+        </div>
+
+        <button type="submit">{% if edit_entry %}Speichern{% else %}Hinzufügen{% endif %}</button>
+        {% if edit_entry %}
+        <a href="{{ url_for('springer_page') }}">Abbrechen</a>
+        {% endif %}
+    </form>
+</section>
+
+<section class="entry-list">
+    <h2>Springerliste</h2>
+
+    <form method="get" action="{{ url_for('springer_page') }}" class="filter-bar">
+        <label for="therapist_filter">Therapeutin:</label>
+        <select id="therapist_filter" name="therapist" onchange="this.form.submit()">
+            <option value="">Alle</option>
+            {% for t in therapists %}
+            <option value="{{ t.username }}" {% if t.username == therapist_filter %}selected{% endif %}>{{ t.username }}</option>
+            {% endfor %}
+        </select>
+        {% if show_hidden %}<input type="hidden" name="show_hidden" value="1">{% endif %}
+    </form>
+
+    <div class="list-actions">
+        {% if show_hidden %}
+        <a href="{{ url_for('springer_page', therapist=therapist_filter) }}">Ausgeblendete verbergen</a>
+        {% else %}
+        <a href="{{ url_for('springer_page', therapist=therapist_filter, show_hidden=1) }}">Ausgeblendete anzeigen</a>
+        {% endif %}
+    </div>
+
+    {% if empty_hint %}
+    <p class="empty-hint">Keine Springer-Einträge vorhanden.</p>
+    {% else %}
+    <table>
+        <thead>
+            <tr>
+                <th>Therapeutin</th>
+                <th>Klientin</th>
+                <th>Von</th>
+                <th>Bis</th>
+                <th>Terminzeit</th>
+                <th>Hinweis</th>
+                <th>Aktionen</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in entries %}
+            <tr class="{% if entry.is_expired %}expired{% endif %}">
+                <td>{{ entry.therapist }}</td>
+                <td>{{ entry.client_name }}</td>
+                <td>{{ entry.valid_from | format_date }}</td>
+                <td>{{ (entry.valid_until | format_date) if entry.valid_until else '–' }}</td>
+                <td>{{ entry.appointment_time }}</td>
+                <td>{{ entry.notes }}</td>
+                <td class="actions">
+                    <a href="{{ url_for('springer_edit', springer_id=entry.id) }}" title="Bearbeiten" class="btn-edit">Bearbeiten</a>
+                    <form method="post" action="{{ url_for('springer_delete', springer_id=entry.id) }}" style="display:inline;">
+                        <button type="submit" onclick="return confirm('Eintrag wirklich löschen?')" title="Löschen" class="btn-delete">Löschen</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+
+</div>
+{% endblock %}

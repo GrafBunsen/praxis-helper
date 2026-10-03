@@ -11,6 +11,9 @@ build/
 # Database (local data, not committed)
 contacts.db
 
+# Rohanforderungen: vom Kunden geliefertes Material, nur lokale Referenz
+.kiro/specs/springerliste/raw-requirements.md
+
 # Hypothesis
 .hypothesis/
 
@@ -21,8 +24,8 @@ contacts.db
 .vscode/
 .idea/
 
-# PyInstaller
-*.spec.bak
+# Docker-Images (gespeicherte Builds, gehören nicht ins Repo)
+*.tar
 
 # OS
 .DS_Store

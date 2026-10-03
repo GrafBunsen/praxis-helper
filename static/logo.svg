@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="100mm"
+   height="100mm"
+   viewBox="0 0 100 100"
+   version="1.1"
+   id="svg1"
+   inkscape:export-filename="bitmap.png"
+   inkscape:export-xdpi="200"
+   inkscape:export-ydpi="200"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   sodipodi:docname="ph_logo.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showguides="true"
+     inkscape:lockguides="false"
+     inkscape:zoom="1"
+     inkscape:cx="396.5"
+     inkscape:cy="230.5"
+     inkscape:window-width="1920"
+     inkscape:window-height="1022"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g3" />
+  <defs
+     id="defs1" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <g
+       id="g3"
+       transform="matrix(1.0228768,0,0,1.0228768,-35.933616,-34.026887)">
+      <path
+         d="m 97.754416,89.501846 h -0.28575 v -1.057275 h -1.16205 v 1.057275 h -0.28575 v -2.26695 h 0.28575 v 0.95885 h 1.16205 v -0.95885 h 0.28575 z"
+         id="text2"
+         style="font-size:3.175px;white-space:pre;inline-size:29.4974;fill:#8e8e8b;stroke:#8e8e8b;stroke-width:0.264583"
+         transform="matrix(29.267475,0,0,29.267475,-2734.6194,-2503.7203)"
+         aria-label="H" />
+      <path
+         d="m 59.180577,48.522542 q 13.009389,0 18.956538,5.110831 5.947149,5.110831 5.947149,14.403252 0,5.482527 -2.508954,10.314586 -2.416029,4.739134 -8.270254,7.712709 -5.7613,2.973574 -15.70419,2.973574 H 49.981081 V 114.87042 H 41.617903 V 48.522542 Z m -0.743393,7.155164 h -8.456103 v 26.204625 h 6.690543 q 9.478269,0 14.124479,-3.066499 4.64621,-3.066499 4.64621,-10.407511 0,-6.41177 -4.088665,-9.571192 -4.088665,-3.159423 -12.916464,-3.159423 z"
+         id="text1"
+         style="font-size:92.9242px;fill:#275f53;stroke:#275f53;stroke-width:7.74368"
+         aria-label="P" />
+    </g>
+  </g>
+</svg>

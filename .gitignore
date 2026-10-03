@@ -11,6 +11,9 @@ build/
 # Database (local data, not committed)
 contacts.db
 
+# Rohanforderungen: vom Kunden geliefertes Material, nur lokale Referenz
+.kiro/specs/springerliste/raw-requirements.md
+
 # Hypothesis
 .hypothesis/
 

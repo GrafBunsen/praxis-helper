@@ -157,3 +157,124 @@ class TestValidateImportJson:
         ok, errors = validate_import_json({})
         assert ok is False
         assert len(errors) >= 2
+
+
+# --- validate_contact: Terminzeit ---
+
+
+class TestValidateContactAppointmentTime:
+    def test_default_appointment_time(self):
+        ok, cleaned = validate_contact({"name": "Max"})
+        assert ok is True
+        assert cleaned["appointment_time"] == "flexibel"
+
+    def test_valid_appointment_time(self):
+        ok, cleaned = validate_contact({"name": "Max", "appointment_time": "mittags"})
+        assert ok is True
+        assert cleaned["appointment_time"] == "mittags"
+
+    def test_invalid_appointment_time_rejected(self):
+        ok, errors = validate_contact({"name": "Max", "appointment_time": "abends"})
+        assert ok is False
+
+
+# --- validate_springer ---
+
+from src.validators import validate_springer, validate_user
+
+
+class TestValidateSpringer:
+    def _base(self, **overrides):
+        data = {
+            "client_name": "Klient A",
+            "therapist": "Frau Müller",
+            "valid_from": "2026-01-01",
+            "valid_until": "2026-02-01",
+            "appointment_time": "flexibel",
+            "notes": "",
+        }
+        data.update(overrides)
+        return data
+
+    def test_valid_full(self):
+        ok, cleaned = validate_springer(self._base())
+        assert ok is True
+        assert cleaned["client_name"] == "Klient A"
+        assert cleaned["valid_until"] == "2026-02-01"
+
+    def test_valid_without_valid_until(self):
+        ok, cleaned = validate_springer(self._base(valid_until=""))
+        assert ok is True
+        assert cleaned["valid_until"] == ""
+
+    def test_empty_client_name_rejected(self):
+        ok, errors = validate_springer(self._base(client_name="  "))
+        assert ok is False
+
+    def test_missing_therapist_rejected(self):
+        ok, errors = validate_springer(self._base(therapist=""))
+        assert ok is False
+
+    def test_invalid_valid_from_rejected(self):
+        ok, errors = validate_springer(self._base(valid_from="nicht-datum"))
+        assert ok is False
+
+    def test_invalid_valid_until_rejected(self):
+        ok, errors = validate_springer(self._base(valid_until="31.02.2026"))
+        assert ok is False
+
+    def test_until_before_from_rejected(self):
+        ok, errors = validate_springer(
+            self._base(valid_from="2026-02-01", valid_until="2026-01-01")
+        )
+        assert ok is False
+
+    def test_until_equals_from_accepted(self):
+        ok, cleaned = validate_springer(
+            self._base(valid_from="2026-01-01", valid_until="2026-01-01")
+        )
+        assert ok is True
+
+    def test_invalid_appointment_time_rejected(self):
+        ok, errors = validate_springer(self._base(appointment_time="abends"))
+        assert ok is False
+
+    def test_html_stripped(self):
+        ok, cleaned = validate_springer(self._base(client_name="<b>Klient</b>"))
+        assert ok is True
+        assert "<" not in cleaned["client_name"]
+
+
+# --- validate_user ---
+
+
+class TestValidateUser:
+    def _base(self, **overrides):
+        data = {
+            "username": "mueller",
+            "password": "geheim",
+            "role": "therapist",
+        }
+        data.update(overrides)
+        return data
+
+    def test_valid(self):
+        ok, cleaned = validate_user(self._base())
+        assert ok is True
+        assert cleaned["username"] == "mueller"
+
+    def test_missing_username_rejected(self):
+        ok, errors = validate_user(self._base(username=""))
+        assert ok is False
+
+    def test_missing_password_rejected(self):
+        ok, errors = validate_user(self._base(password=""))
+        assert ok is False
+
+    def test_invalid_role_rejected(self):
+        ok, errors = validate_user(self._base(role="admin"))
+        assert ok is False
+
+    def test_office_role_accepted(self):
+        ok, cleaned = validate_user(self._base(role="office"))
+        assert ok is True

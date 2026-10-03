@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-layout">
+
+<section class="entry-form">
+    <h2>Neuer Nutzer</h2>
+    <form method="post" action="{{ url_for('users_add') }}">
+        <div class="form-group">
+            <label for="username">Benutzername *</label>
+            <input type="text" id="username" name="username" required>
+        </div>
+        <div class="form-group">
+            <label for="password">Passwort *</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <div class="form-group">
+            <label for="role">Rolle *</label>
+            <select id="role" name="role" required>
+                <option value="therapist">{{ role_labels['therapist'] }} (nur Springer)</option>
+                <option value="office">{{ role_labels['office'] }} (alles)</option>
+            </select>
+        </div>
+        <button type="submit">Anlegen</button>
+    </form>
+</section>
+
+<section class="entry-list">
+    <h2>Nutzer</h2>
+    {% if not users %}
+    <p class="empty-hint">Noch keine Nutzer angelegt.</p>
+    {% else %}
+    <table>
+        <thead>
+            <tr>
+                <th>Benutzername</th>
+                <th>Rolle</th>
+                <th>Aktionen</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr>
+                <td>{{ u.username }}</td>
+                <td>{{ role_labels.get(u.role, u.role) }}</td>
+                <td class="actions">
+                    <form method="post" action="{{ url_for('users_delete', user_id=u.id) }}" style="display:inline;">
+                        <button type="submit" onclick="return confirm('Nutzer wirklich entfernen? Springer-Einträge bleiben erhalten.')" class="btn-delete">Entfernen</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+
+</div>
+{% endblock %}

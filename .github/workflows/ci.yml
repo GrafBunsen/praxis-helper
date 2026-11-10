@@ -28,9 +28,12 @@ jobs:
       - name: Image für ARM32 (NAS) bauen und als tar speichern
         run: |
           TAG="${GITHUB_REF_NAME}"
+          # --load legt das ARM32-Image in den lokalen Daemon; docker save
+          # schreibt das klassische Image-Format, das die alte QNAP Container
+          # Station lädt (buildx' OCI-tar lehnt sie mit "file not supported" ab).
           docker buildx build --platform linux/arm/v7 \
-            -t praxis-helper:"${TAG}" \
-            --output type=docker,dest="praxis-helper-${TAG}.tar" .
+            -t praxis-helper:"${TAG}" --load .
+          docker save praxis-helper:"${TAG}" -o "praxis-helper-${TAG}.tar"
       - uses: actions/upload-artifact@v4
         with:
           name: praxis-helper-image
